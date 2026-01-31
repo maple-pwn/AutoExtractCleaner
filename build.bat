@@ -1,61 +1,78 @@
 @echo off
-chcp 65001 >nul
 echo ========================================
-echo   压缩包自动清理工具 - 打包脚本
+echo   AutoExtractCleaner - Build Script
 echo ========================================
 echo.
 
-REM 检查Python
+REM Check Python
+echo [0/4] Checking Python...
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo [错误] 未找到Python，请先安装Python 3.8+
+    echo [ERROR] Python not found!
+    echo Please download from: https://www.python.org/downloads/
+    echo Make sure to check "Add Python to PATH" during installation
     pause
     exit /b 1
 )
+echo [OK] Python found
+echo.
 
-REM 安装依赖
-echo [1/3] 安装依赖...
-pip install -r requirements.txt -q
+REM Install dependencies with China mirror
+echo [1/4] Installing dependencies (using China mirror)...
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pystray Pillow watchdog py7zr rarfile pyinstaller
 if errorlevel 1 (
-    echo [错误] 安装依赖失败
+    echo [ERROR] Failed to install dependencies
+    echo Try running: pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pystray Pillow watchdog py7zr rarfile pyinstaller
     pause
     exit /b 1
 )
+echo [OK] Dependencies installed
+echo.
 
-REM 清理旧的构建文件
-echo [2/3] 清理旧文件...
+REM Clean old builds
+echo [2/4] Cleaning old files...
 if exist "dist" rmdir /s /q dist
 if exist "build" rmdir /s /q build
-if exist "*.spec" del /q *.spec
+if exist "*.spec" del /q *.spec 2>nul
+echo [OK] Cleaned
+echo.
 
-REM 打包
-echo [3/3] 开始打包...
-pyinstaller --noconfirm ^
-    --onefile ^
-    --windowed ^
-    --name "AutoExtractCleaner" ^
-    --icon "icon.ico" ^
-    --add-data "icon.ico;." ^
-    --hidden-import "pystray._win32" ^
-    --hidden-import "PIL._tkinter_finder" ^
-    main.py
+REM Generate icon
+echo [3/4] Generating icon...
+if not exist "icon.ico" (
+    python create_icon.py
+    if errorlevel 1 (
+        echo [WARN] Icon generation failed, using default
+    ) else (
+        echo [OK] Icon created
+    )
+) else (
+    echo [OK] Icon exists
+)
+echo.
+
+REM Build
+echo [4/4] Building executable...
+echo This may take 1-2 minutes...
+pyinstaller --noconfirm --onefile --windowed --name "AutoExtractCleaner" --hidden-import "pystray._win32" --hidden-import "PIL._tkinter_finder" main.py
 
 if errorlevel 1 (
-    echo [错误] 打包失败
+    echo [ERROR] Build failed
     pause
     exit /b 1
 )
 
 echo.
 echo ========================================
-echo   打包完成！
-echo   可执行文件: dist\AutoExtractCleaner.exe
+echo   SUCCESS! Build complete!
 echo ========================================
 echo.
 
-REM 复制到当前目录
-copy /y "dist\AutoExtractCleaner.exe" "AutoExtractCleaner.exe" >nul
+copy /y "dist\AutoExtractCleaner.exe" "AutoExtractCleaner.exe" >nul 2>&1
 
-echo 文件已复制到当前目录: AutoExtractCleaner.exe
+echo Output file: AutoExtractCleaner.exe
+echo.
+echo You can now double-click AutoExtractCleaner.exe to run!
 echo.
 pause

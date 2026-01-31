@@ -1,7 +1,6 @@
-# Auto Extract Cleaner - Dependencies
-pystray>=0.19.5          # System tray icon
-Pillow>=10.0.0           # Image processing for tray icon
-watchdog>=3.0.0          # File system monitoring
-py7zr>=0.20.0            # 7z archive support
-rarfile>=4.1             # RAR archive support
-pyinstaller>=6.0.0       # Build executable
+pystray>=0.19.5
+Pillow>=10.0.0
+watchdog>=3.0.0
+py7zr>=0.20.0
+rarfile>=4.1
+pyinstaller>=6.0.0
