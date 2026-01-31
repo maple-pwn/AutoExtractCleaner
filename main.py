@@ -44,7 +44,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 APP_NAME = "AutoExtractCleaner"
-APP_TITLE = "Archive Auto Cleaner"
+APP_TITLE = "压缩包自动清理"
 CONFIG_FILE = "config.json"
 LOG_FILE = "app.log"
 
@@ -390,8 +390,8 @@ class ArchiveWatcher:
                 if os.path.exists(filepath):
                     filename = os.path.basename(filepath)
                     os.remove(filepath)
-                    logging.info(f"Deleted archive: {filepath}")
-                    self._show_notification(f"Deleted: {filename}")
+                    logging.info(f"已删除压缩包: {filepath}")
+                    self._show_notification(f"已删除: {filename}")
             except Exception as e:
                 logging.error(f"Delete failed {filepath}: {e}")
             finally:
@@ -406,7 +406,9 @@ class ArchiveWatcher:
                 from win10toast import ToastNotifier
 
                 toaster = ToastNotifier()
-                toaster.show_toast(APP_TITLE, message, duration=3, threaded=True)
+                toaster.show_toast(
+                    APP_TITLE, message, duration=3, threaded=True, icon_path=None
+                )
         except:
             pass
 
@@ -513,7 +515,7 @@ class SettingsWindow:
                 self.window = None
 
         self.window = tk.Tk()
-        self.window.title(f"{APP_TITLE} - Settings")
+        self.window.title(f"{APP_TITLE} - 设置")
         self.window.geometry("550x450")
         self.window.resizable(True, True)
 
@@ -530,7 +532,7 @@ class SettingsWindow:
         notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         folder_frame = ttk.Frame(notebook, padding=10)
-        notebook.add(folder_frame, text="Monitor Folders")
+        notebook.add(folder_frame, text="监控文件夹")
 
         list_frame = ttk.Frame(folder_frame)
         list_frame.pack(fill=tk.BOTH, expand=True)
@@ -550,23 +552,23 @@ class SettingsWindow:
         btn_frame = ttk.Frame(folder_frame)
         btn_frame.pack(fill=tk.X, pady=10)
 
-        ttk.Button(btn_frame, text="Add Folder", command=self._add_folder).pack(
+        ttk.Button(btn_frame, text="添加文件夹", command=self._add_folder).pack(
             side=tk.LEFT, padx=5
         )
-        ttk.Button(btn_frame, text="Remove", command=self._remove_folder).pack(
+        ttk.Button(btn_frame, text="移除", command=self._remove_folder).pack(
             side=tk.LEFT, padx=5
         )
-        ttk.Button(btn_frame, text="Add Downloads", command=self._add_downloads).pack(
+        ttk.Button(btn_frame, text="添加下载文件夹", command=self._add_downloads).pack(
             side=tk.LEFT, padx=5
         )
 
         general_frame = ttk.Frame(notebook, padding=10)
-        notebook.add(general_frame, text="Settings")
+        notebook.add(general_frame, text="常规设置")
 
         self.auto_start_var = tk.BooleanVar(value=AutoStartManager.is_enabled())
         ttk.Checkbutton(
             general_frame,
-            text="Start on boot",
+            text="开机自动启动",
             variable=self.auto_start_var,
             command=self._toggle_auto_start,
         ).pack(anchor=tk.W, pady=5)
@@ -575,7 +577,7 @@ class SettingsWindow:
             value=self.config.get("auto_monitor", True)
         )
         ttk.Checkbutton(
-            general_frame, text="Auto-start monitoring", variable=self.auto_monitor_var
+            general_frame, text="启动时自动开始监控", variable=self.auto_monitor_var
         ).pack(anchor=tk.W, pady=5)
 
         self.delete_after_var = tk.BooleanVar(
@@ -583,7 +585,7 @@ class SettingsWindow:
         )
         ttk.Checkbutton(
             general_frame,
-            text="Delete archive after extraction",
+            text="解压后自动删除压缩包",
             variable=self.delete_after_var,
         ).pack(anchor=tk.W, pady=5)
 
@@ -591,12 +593,12 @@ class SettingsWindow:
             value=self.config.get("extract_to_subfolder", True)
         )
         ttk.Checkbutton(
-            general_frame, text="Extract to subfolder", variable=self.subfolder_var
+            general_frame, text="解压到同名子文件夹", variable=self.subfolder_var
         ).pack(anchor=tk.W, pady=5)
 
         delay_frame = ttk.Frame(general_frame)
         delay_frame.pack(anchor=tk.W, pady=5)
-        ttk.Label(delay_frame, text="Delete delay (seconds):").pack(side=tk.LEFT)
+        ttk.Label(delay_frame, text="删除延迟(秒):").pack(side=tk.LEFT)
         self.delay_var = tk.StringVar(
             value=str(self.config.get("delete_delay_seconds", 3))
         )
@@ -605,29 +607,29 @@ class SettingsWindow:
         ).pack(side=tk.LEFT, padx=5)
 
         extract_frame = ttk.Frame(notebook, padding=10)
-        notebook.add(extract_frame, text="Manual Extract")
+        notebook.add(extract_frame, text="手动解压")
 
-        ttk.Label(extract_frame, text="Select an archive to extract").pack(pady=10)
-        ttk.Button(
-            extract_frame, text="Select Archive", command=self._manual_extract
-        ).pack(pady=10)
+        ttk.Label(extract_frame, text="选择压缩包进行解压").pack(pady=10)
+        ttk.Button(extract_frame, text="选择压缩包", command=self._manual_extract).pack(
+            pady=10
+        )
 
-        ttk.Label(extract_frame, text="Log:").pack(anchor=tk.W)
+        ttk.Label(extract_frame, text="操作日志:").pack(anchor=tk.W)
         self.log_text = tk.Text(extract_frame, height=8, state=tk.DISABLED)
         self.log_text.pack(fill=tk.BOTH, expand=True, pady=5)
 
         bottom_frame = ttk.Frame(self.window)
         bottom_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        ttk.Button(bottom_frame, text="Save", command=self._save_settings).pack(
+        ttk.Button(bottom_frame, text="保存", command=self._save_settings).pack(
             side=tk.RIGHT, padx=5
         )
-        ttk.Button(bottom_frame, text="Close", command=self._on_close).pack(
+        ttk.Button(bottom_frame, text="关闭", command=self._on_close).pack(
             side=tk.RIGHT, padx=5
         )
 
     def _add_folder(self):
-        folder = filedialog.askdirectory(title="Select folder to monitor")
+        folder = filedialog.askdirectory(title="选择要监控的文件夹")
         if folder:
             if folder not in self.folder_listbox.get(0, tk.END):
                 self.folder_listbox.insert(tk.END, folder)
@@ -650,28 +652,26 @@ class SettingsWindow:
 
     def _manual_extract(self):
         filetypes = [
-            ("Archives", "*.zip *.rar *.7z *.tar *.tar.gz *.tgz *.tar.bz2 *.tar.xz"),
-            ("All files", "*.*"),
+            ("压缩包", "*.zip *.rar *.7z *.tar *.tar.gz *.tgz *.tar.bz2 *.tar.xz"),
+            ("所有文件", "*.*"),
         ]
 
-        filepath = filedialog.askopenfilename(
-            title="Select archive", filetypes=filetypes
-        )
+        filepath = filedialog.askopenfilename(title="选择压缩包", filetypes=filetypes)
 
         if filepath:
-            self._log(f"Extracting: {filepath}")
+            self._log(f"正在解压: {filepath}")
             success, msg = ArchiveExtractor.extract(
                 filepath, to_subfolder=self.subfolder_var.get()
             )
             self._log(msg)
 
             if success and self.delete_after_var.get():
-                if messagebox.askyesno("Confirm", "Delete original archive?"):
+                if messagebox.askyesno("确认", "是否删除原压缩包?"):
                     try:
                         os.remove(filepath)
-                        self._log(f"Deleted: {filepath}")
+                        self._log(f"已删除: {filepath}")
                     except Exception as e:
-                        self._log(f"Delete failed: {e}")
+                        self._log(f"删除失败: {e}")
 
     def _log(self, message: str):
         self.log_text.config(state=tk.NORMAL)
@@ -692,9 +692,7 @@ class SettingsWindow:
         except:
             pass
 
-        messagebox.showinfo(
-            "Info", "Settings saved!\nRestart monitoring to apply changes."
-        )
+        messagebox.showinfo("提示", "设置已保存！\n重启监控后生效。")
 
     def _on_close(self):
         if self.window:
@@ -729,25 +727,25 @@ class TrayApp:
     def _create_menu(self) -> pystray.Menu:
         return pystray.Menu(
             pystray.MenuItem(
-                lambda item: "● Monitoring" if self.monitoring else "○ Stopped",
+                lambda item: "● 监控中" if self.monitoring else "○ 已停止",
                 None,
                 enabled=False,
             ),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(
-                lambda item: "Stop" if self.monitoring else "Start",
+                lambda item: "停止监控" if self.monitoring else "开始监控",
                 self._toggle_monitoring,
             ),
-            pystray.MenuItem("Settings", self._show_settings),
-            pystray.MenuItem("Extract Archive", self._manual_extract),
+            pystray.MenuItem("设置", self._show_settings),
+            pystray.MenuItem("手动解压", self._manual_extract),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(
-                "Auto-start",
+                "开机自启",
                 self._toggle_autostart,
                 checked=lambda item: AutoStartManager.is_enabled(),
             ),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Exit", self._quit),
+            pystray.MenuItem("退出", self._quit),
         )
 
     def _toggle_monitoring(self, icon=None, item=None):
@@ -772,13 +770,13 @@ class TrayApp:
 
             filetypes = [
                 (
-                    "Archives",
+                    "压缩包",
                     "*.zip *.rar *.7z *.tar *.tar.gz *.tgz *.tar.bz2 *.tar.xz",
                 ),
-                ("All files", "*.*"),
+                ("所有文件", "*.*"),
             ]
             filepath = filedialog.askopenfilename(
-                title="Select archive", filetypes=filetypes
+                title="选择压缩包", filetypes=filetypes
             )
 
             if filepath:
@@ -789,16 +787,16 @@ class TrayApp:
                 if success:
                     if self.config.get("delete_after_extract", True):
                         if messagebox.askyesno(
-                            "Success", f"{msg}\n\nDelete original archive?"
+                            "解压成功", f"{msg}\n\n是否删除原压缩包?"
                         ):
                             try:
                                 os.remove(filepath)
                             except Exception as e:
-                                messagebox.showerror("Error", f"Delete failed: {e}")
+                                messagebox.showerror("错误", f"删除失败: {e}")
                     else:
-                        messagebox.showinfo("Success", msg)
+                        messagebox.showinfo("成功", msg)
                 else:
-                    messagebox.showerror("Error", msg)
+                    messagebox.showerror("错误", msg)
 
             root.destroy()
 

@@ -71,36 +71,36 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.version.outputs.tag }}
-        name: AutoExtractCleaner ${{ steps.version.outputs.tag }}
+        name: 压缩包自动清理 ${{ steps.version.outputs.tag }}
         body: |
-          ## Download
+          ## 下载
           
-          **[AutoExtractCleaner.exe](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/AutoExtractCleaner.exe)** - Windows executable
+          **[AutoExtractCleaner.exe](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/AutoExtractCleaner.exe)** - Windows 可执行文件
           
-          ## Checksum
+          ## 校验和
           
           ```
           SHA256: ${{ steps.checksum.outputs.sha256 }}
           ```
           
-          ## Features
+          ## 功能特性
           
-          - System tray application
-          - Auto-delete archives after extraction (monitors folder for new directories)
-          - Manual extract with one-click delete
-          - Supports: ZIP, RAR, 7Z, TAR, GZ, BZ2, XZ
-          - Auto-start on boot (optional)
-          - Windows 10/11 notifications
+          - 系统托盘运行，不占用任务栏
+          - 监控文件夹，解压后自动删除压缩包
+          - 内置手动解压功能，一键解压删除
+          - 支持格式：ZIP, RAR, 7Z, TAR, GZ, BZ2, XZ
+          - 可选开机自启动
+          - Windows 10/11 通知提醒
           
-          ## Usage
+          ## 使用方法
           
-          1. Download and run `AutoExtractCleaner.exe`
-          2. Right-click tray icon → Settings
-          3. Add folders to monitor (e.g., Downloads)
-          4. When you extract an archive, the original file is auto-deleted
+          1. 下载并运行 `AutoExtractCleaner.exe`
+          2. 右键点击托盘图标 → 设置
+          3. 添加要监控的文件夹（如"下载"文件夹）
+          4. 当你解压压缩包时，原文件会自动删除
           
           ---
-          Build: ${{ steps.version.outputs.sha }} | ${{ steps.version.outputs.date }}
+          构建: ${{ steps.version.outputs.sha }} | ${{ steps.version.outputs.date }}
         files: dist/AutoExtractCleaner.exe
         draft: false
         prerelease: false
