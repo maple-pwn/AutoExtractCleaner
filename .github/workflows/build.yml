@@ -1,11 +1,12 @@
-name: Build Windows EXE
+name: Build and Release
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -32,9 +33,24 @@ jobs:
       run: |
         pyinstaller --noconfirm --onefile --windowed --name "AutoExtractCleaner" --hidden-import "pystray._win32" --hidden-import "PIL._tkinter_finder" main.py
     
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
+    - name: Get current date
+      id: date
+      run: echo "date=$(Get-Date -Format 'yyyy.MM.dd')" >> $env:GITHUB_OUTPUT
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
       with:
-        name: AutoExtractCleaner-Windows
-        path: dist/AutoExtractCleaner.exe
-        retention-days: 30
+        tag_name: v${{ steps.date.outputs.date }}
+        name: AutoExtractCleaner v${{ steps.date.outputs.date }}
+        body: |
+          Auto-built Windows executable.
+          
+          **Download:** `AutoExtractCleaner.exe`
+          
+          **Usage:**
+          1. Download and run
+          2. Right-click tray icon to configure
+          3. Add folders to monitor
+        files: dist/AutoExtractCleaner.exe
+        draft: false
+        prerelease: false
