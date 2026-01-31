@@ -3,6 +3,8 @@ name: Build and Release
 on:
   push:
     branches: [main]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -20,37 +22,86 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: 'pip'
     
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pystray Pillow watchdog py7zr rarfile pyinstaller
+        pip install pystray Pillow watchdog py7zr rarfile pyinstaller win10toast
     
     - name: Generate icon
       run: python create_icon.py
     
     - name: Build executable
       run: |
-        pyinstaller --noconfirm --onefile --windowed --name "AutoExtractCleaner" --hidden-import "pystray._win32" --hidden-import "PIL._tkinter_finder" main.py
+        pyinstaller --noconfirm --onefile --windowed --name "AutoExtractCleaner" --icon "icon.ico" --hidden-import "pystray._win32" --hidden-import "PIL._tkinter_finder" --hidden-import "win10toast" main.py
     
-    - name: Get current date
-      id: date
-      run: echo "date=$(Get-Date -Format 'yyyy.MM.dd')" >> $env:GITHUB_OUTPUT
+    - name: Get version info
+      id: version
+      run: |
+        $date = Get-Date -Format 'yyyy.MM.dd'
+        $sha = "${{ github.sha }}".Substring(0,7)
+        $run = "${{ github.run_number }}"
+        echo "date=$date" >> $env:GITHUB_OUTPUT
+        echo "sha=$sha" >> $env:GITHUB_OUTPUT
+        echo "tag=v$date.$run" >> $env:GITHUB_OUTPUT
     
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
+    - name: Calculate checksum
+      id: checksum
+      run: |
+        $hash = (Get-FileHash -Path "dist/AutoExtractCleaner.exe" -Algorithm SHA256).Hash
+        echo "sha256=$hash" >> $env:GITHUB_OUTPUT
+        echo "SHA256: $hash"
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
       with:
-        tag_name: v${{ steps.date.outputs.date }}
-        name: AutoExtractCleaner v${{ steps.date.outputs.date }}
+        name: AutoExtractCleaner-Windows
+        path: dist/AutoExtractCleaner.exe
+        retention-days: 30
+
+    - name: Delete existing release with same tag
+      run: |
+        gh release delete ${{ steps.version.outputs.tag }} --yes || true
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      continue-on-error: true
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.tag }}
+        name: AutoExtractCleaner ${{ steps.version.outputs.tag }}
         body: |
-          Auto-built Windows executable.
+          ## Download
           
-          **Download:** `AutoExtractCleaner.exe`
+          **[AutoExtractCleaner.exe](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/AutoExtractCleaner.exe)** - Windows executable
           
-          **Usage:**
-          1. Download and run
-          2. Right-click tray icon to configure
-          3. Add folders to monitor
+          ## Checksum
+          
+          ```
+          SHA256: ${{ steps.checksum.outputs.sha256 }}
+          ```
+          
+          ## Features
+          
+          - System tray application
+          - Auto-delete archives after extraction (monitors folder for new directories)
+          - Manual extract with one-click delete
+          - Supports: ZIP, RAR, 7Z, TAR, GZ, BZ2, XZ
+          - Auto-start on boot (optional)
+          - Windows 10/11 notifications
+          
+          ## Usage
+          
+          1. Download and run `AutoExtractCleaner.exe`
+          2. Right-click tray icon → Settings
+          3. Add folders to monitor (e.g., Downloads)
+          4. When you extract an archive, the original file is auto-deleted
+          
+          ---
+          Build: ${{ steps.version.outputs.sha }} | ${{ steps.version.outputs.date }}
         files: dist/AutoExtractCleaner.exe
         draft: false
         prerelease: false
+        make_latest: true

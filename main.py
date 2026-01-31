@@ -19,8 +19,13 @@ if sys.platform == "win32":
 try:
     import pystray
     from PIL import Image, ImageDraw
-    from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
+
+    # Use Windows-specific observer for better reliability
+    if sys.platform == "win32":
+        from watchdog.observers import Observer
+    else:
+        from watchdog.observers import Observer
     import py7zr
     import rarfile
 except ImportError as e:
@@ -380,11 +385,13 @@ class ArchiveWatcher:
         logging.info(f"Scheduled deletion in {delay}s: {filepath}")
 
         def do_delete():
-            time.sleep(delay)
+            time.sleep(delay if delay else 3)
             try:
                 if os.path.exists(filepath):
+                    filename = os.path.basename(filepath)
                     os.remove(filepath)
                     logging.info(f"Deleted archive: {filepath}")
+                    self._show_notification(f"Deleted: {filename}")
             except Exception as e:
                 logging.error(f"Delete failed {filepath}: {e}")
             finally:
@@ -393,6 +400,16 @@ class ArchiveWatcher:
 
         threading.Thread(target=do_delete, daemon=True).start()
 
+    def _show_notification(self, message: str):
+        try:
+            if sys.platform == "win32":
+                from win10toast import ToastNotifier
+
+                toaster = ToastNotifier()
+                toaster.show_toast(APP_TITLE, message, duration=3, threaded=True)
+        except:
+            pass
+
 
 class ArchiveEventHandler(FileSystemEventHandler):
     def __init__(self, watcher: ArchiveWatcher, watch_folder: str):
@@ -400,20 +417,49 @@ class ArchiveEventHandler(FileSystemEventHandler):
         self.watcher = watcher
         self.watch_folder = watch_folder
         self.known_archives: Dict[str, str] = {}
-        self._scan_existing_archives()
+        self.known_folders: Set[str] = set()
+        self._scan_existing()
+        self._start_periodic_scan()
 
-    def _scan_existing_archives(self):
+    def _scan_existing(self):
         try:
             for item in os.listdir(self.watch_folder):
                 filepath = os.path.join(self.watch_folder, item)
                 if os.path.isfile(filepath) and self.watcher.is_archive(filepath):
                     base_name = ArchiveExtractor.get_base_name(filepath)
                     self.known_archives[base_name.lower()] = filepath
-                    logging.debug(
-                        f"Found existing archive: {filepath} (base: {base_name})"
-                    )
+                    logging.info(f"Tracking archive: {os.path.basename(filepath)}")
+                elif os.path.isdir(filepath):
+                    self.known_folders.add(os.path.basename(filepath).lower())
         except Exception as e:
             logging.error(f"Error scanning folder: {e}")
+
+    def _start_periodic_scan(self):
+        def scan_loop():
+            while self.watcher.running:
+                time.sleep(5)
+                self._check_for_new_folders()
+
+        threading.Thread(target=scan_loop, daemon=True).start()
+
+    def _check_for_new_folders(self):
+        try:
+            current_folders = set()
+            for item in os.listdir(self.watch_folder):
+                filepath = os.path.join(self.watch_folder, item)
+                if os.path.isdir(filepath):
+                    current_folders.add(item.lower())
+
+            new_folders = current_folders - self.known_folders
+            for folder_name in new_folders:
+                if folder_name in self.known_archives:
+                    archive_path = self.known_archives[folder_name]
+                    logging.info(f"Periodic scan: found extraction {folder_name}")
+                    self.watcher.schedule_deletion(archive_path)
+
+            self.known_folders = current_folders
+        except Exception as e:
+            logging.error(f"Periodic scan error: {e}")
 
     def on_created(self, event):
         try:
