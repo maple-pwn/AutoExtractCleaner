@@ -76,11 +76,10 @@ def get_app_data_path() -> Path:
 def setup_logging():
     log_path = get_app_data_path() / LOG_FILE
     logging.basicConfig(
-        level=logging.DEBUG,
-        format="%(asctime)s - %(levelname)s - %(message)s",
+        level=logging.INFO,
+        format="%(asctime)s - %(message)s",
         handlers=[
             logging.FileHandler(log_path, encoding="utf-8"),
-            logging.StreamHandler(),
         ],
     )
     return logging.getLogger(__name__)
@@ -368,9 +367,10 @@ class ArchiveWatcher:
         logging.info("Monitoring stopped")
 
     def is_archive(self, filepath: str) -> bool:
-        lower_path = filepath.lower()
-        supported = self.config.get("supported_formats", ARCHIVE_EXTENSIONS)
-        return any(lower_path.endswith(ext) for ext in supported)
+        ext = os.path.splitext(filepath.lower())[1]
+        return ext in ARCHIVE_EXTENSIONS or filepath.lower().endswith(
+            (".tar.gz", ".tar.bz2", ".tar.xz")
+        )
 
     def schedule_deletion(self, filepath: str):
         if not self.config.get("delete_after_extract", True):
@@ -400,14 +400,17 @@ class ArchiveWatcher:
 
         threading.Thread(target=do_delete, daemon=True).start()
 
+    _toaster = None
+
     def _show_notification(self, message: str):
         try:
             if sys.platform == "win32":
-                from win10toast import ToastNotifier
+                if ArchiveWatcher._toaster is None:
+                    from win10toast import ToastNotifier
 
-                toaster = ToastNotifier()
-                toaster.show_toast(
-                    APP_TITLE, message, duration=3, threaded=True, icon_path=None
+                    ArchiveWatcher._toaster = ToastNotifier()
+                ArchiveWatcher._toaster.show_toast(
+                    APP_TITLE, message, duration=2, threaded=True, icon_path=None
                 )
         except:
             pass
@@ -425,43 +428,43 @@ class ArchiveEventHandler(FileSystemEventHandler):
 
     def _scan_existing(self):
         try:
-            for item in os.listdir(self.watch_folder):
-                filepath = os.path.join(self.watch_folder, item)
-                if os.path.isfile(filepath) and self.watcher.is_archive(filepath):
-                    base_name = ArchiveExtractor.get_base_name(filepath)
-                    self.known_archives[base_name.lower()] = filepath
-                    logging.info(f"Tracking archive: {os.path.basename(filepath)}")
-                elif os.path.isdir(filepath):
-                    self.known_folders.add(os.path.basename(filepath).lower())
+            with os.scandir(self.watch_folder) as entries:
+                for entry in entries:
+                    if entry.is_file() and self.watcher.is_archive(entry.path):
+                        base_name = ArchiveExtractor.get_base_name(entry.path)
+                        self.known_archives[base_name.lower()] = entry.path
+                    elif entry.is_dir():
+                        self.known_folders.add(entry.name.lower())
         except Exception as e:
-            logging.error(f"Error scanning folder: {e}")
+            logging.error(f"扫描错误: {e}")
 
     def _start_periodic_scan(self):
         def scan_loop():
             while self.watcher.running:
-                time.sleep(5)
-                self._check_for_new_folders()
+                time.sleep(3)
+                if self.known_archives:
+                    self._check_for_new_folders()
 
         threading.Thread(target=scan_loop, daemon=True).start()
 
     def _check_for_new_folders(self):
         try:
             current_folders = set()
-            for item in os.listdir(self.watch_folder):
-                filepath = os.path.join(self.watch_folder, item)
-                if os.path.isdir(filepath):
-                    current_folders.add(item.lower())
+            with os.scandir(self.watch_folder) as entries:
+                for entry in entries:
+                    if entry.is_dir():
+                        current_folders.add(entry.name.lower())
 
             new_folders = current_folders - self.known_folders
             for folder_name in new_folders:
                 if folder_name in self.known_archives:
                     archive_path = self.known_archives[folder_name]
-                    logging.info(f"Periodic scan: found extraction {folder_name}")
+                    logging.info(f"检测到解压: {folder_name}")
                     self.watcher.schedule_deletion(archive_path)
 
             self.known_folders = current_folders
-        except Exception as e:
-            logging.error(f"Periodic scan error: {e}")
+        except:
+            pass
 
     def on_created(self, event):
         try:
